@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🎥 Video to Blog with Whisper & Qwen2.5</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/flowbite@1.6.5/dist/flowbite.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="max-w-7xl mx-auto py-12 px-4">
+    <h1 class="text-3xl font-bold mb-2 flex items-center gap-2">🎥 Video to Blog with Whisper & Qwen2.5</h1>
+    <p class="mb-8 text-gray-300">
+      Upload a video to convert it into a blog post using Whisper for transcription and Qwen2.5-7B-Instruct for blog generation.
+    </p>
+
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-10">
+      <label class="block mb-2 text-sm font-medium text-white">Upload Video</label>
+      <input
+        type="file"
+        id="videoInput"
+        name="video"
+        accept="video/*"
+        class="block w-full text-sm text-gray-200 bg-gray-700 border border-gray-600 rounded-lg cursor-pointer focus:outline-none"
+      />
+      <p id="selected-file" class="mt-2 text-gray-300">No file selected</p>
+
+      <video
+        id="uploadedVideo"
+        controls
+        class="w-full rounded bg-black mt-4 mb-4 hidden"
+        style="max-height: 300px;"
+      >
+        <source id="videoSource" src="" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+
+      <button id="uploadBtn" class="bg-orange-500 hover:bg-orange-600 px-6 py-2 rounded text-white font-semibold mt-2" disabled>
+        Upload & Process
+      </button>
+    </div>
+
+    <div id="results" class="mt-8 hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h2 class="text-xl font-semibold mb-2">📝 Transcript</h2>
+        <textarea id="transcript" readonly rows="15" class="w-full p-4 bg-gray-800 border border-gray-600 rounded resize-none"></textarea>
+      </div>
+      <div>
+        <h2 class="text-xl font-semibold mb-2">✍️ Generated Blog</h2>
+        <textarea id="blog" readonly rows="35" class="w-full p-4 bg-gray-800 border border-gray-600 rounded resize-none"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const videoInput = document.getElementById('videoInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const selectedFileText = document.getElementById('selected-file');
+    const resultsDiv = document.getElementById('results');
+    const transcriptArea = document.getElementById('transcript');
+    const blogArea = document.getElementById('blog');
+    const videoElement = document.getElementById('uploadedVideo');
+    const videoSource = document.getElementById('videoSource');
+
+    videoInput.addEventListener('change', () => {
+      if (videoInput.files.length > 0) {
+        selectedFileText.innerHTML = 'Selected file: <strong>' + videoInput.files[0].name + '</strong>';
+        uploadBtn.disabled = false;
+
+        // Show local preview of video before upload
+        const fileURL = URL.createObjectURL(videoInput.files[0]);
+        videoSource.src = fileURL;
+        videoElement.load();
+        videoElement.classList.remove('hidden');
+
+        resultsDiv.classList.add('hidden');  // Hide previous results on new selection
+      } else {
+        selectedFileText.textContent = 'No file selected';
+        uploadBtn.disabled = true;
+        videoElement.classList.add('hidden');
+        resultsDiv.classList.add('hidden');
+      }
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      if (videoInput.files.length === 0) return;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = 'Processing...';
+
+      const formData = new FormData();
+      formData.append('video', videoInput.files[0]);
+
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          alert('Upload failed: ' + response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+
+        // Update video src to server file (replace local preview with server served file)
+        videoSource.src = `/static/${encodeURIComponent(data.filename)}`;
+        videoElement.load();
+        videoElement.classList.remove('hidden');
+
+        transcriptArea.value = data.transcript;
+        blogArea.value = data.blog;
+        resultsDiv.classList.remove('hidden');
+
+        // Scroll smoothly to results section after generation
+        resultsDiv.scrollIntoView({ behavior: 'smooth' });
+
+      } catch (error) {
+        alert('Error: ' + error.message);
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Upload & Process';
+      }
+    });
+  </script>
+</body>
+</html>
